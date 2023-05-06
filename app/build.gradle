@@ -1,9 +1,5 @@
 apply plugin: 'com.android.application'
 
-def isFirebase = rootProject.file('app/google-services.json').exists()
-if (isFirebase) {
-    apply plugin: 'com.google.gms.google-services'
-}
 
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
@@ -76,16 +72,9 @@ dependencies {
     implementation deps.preference
 
     implementation 'androidx.work:work-runtime:2.7.1'
-    if (isFirebase) {
-        implementation(firebaseCore) {
-            exclude group: "com.google.android.gms", module: "play-services-ads-identifier"
-        }
-    } else {
-        printf("not exists google-services.json")
-        compileOnly firebaseCore
-    }
+    
 
-    implementation 'io.sentry:sentry-android-core:6.1.4'
+   
     implementation 'org.conscrypt:conscrypt-android:2.5.2'
 
     implementation deps.gson
