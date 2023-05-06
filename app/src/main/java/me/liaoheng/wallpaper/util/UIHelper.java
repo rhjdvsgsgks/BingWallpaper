@@ -7,6 +7,8 @@ import android.media.ThumbnailUtils;
 import android.os.Build;
 import android.util.DisplayMetrics;
 
+import androidx.annotation.NonNull;
+
 import com.github.liaoheng.common.util.AppUtils;
 import com.github.liaoheng.common.util.BitmapUtils;
 import com.github.liaoheng.common.util.ROM;
@@ -14,8 +16,8 @@ import com.github.liaoheng.common.util.ROM;
 import java.io.File;
 import java.io.IOException;
 
-import androidx.annotation.NonNull;
 import me.liaoheng.wallpaper.model.Config;
+import me.liaoheng.wallpaper.model.WallpaperImage;
 
 /**
  * @author liaoheng
@@ -24,47 +26,37 @@ import me.liaoheng.wallpaper.model.Config;
 public class UIHelper implements IUIHelper {
 
     @Override
-    public void setWallpaper(Context context, @NonNull Config config, File wallpaper) throws IOException {
-        if (WallpaperUtils.isNotSupportedWallpaper(context)) {
-            throw new IOException("This device not support wallpaper");
-        }
-        File home = new File(wallpaper.toURI());
-        File lock = new File(wallpaper.toURI());
-        if (config.getStackBlur() > 0) {
-            File blurFile = WallpaperUtils.getImageStackBlurFile(config.getStackBlur(), wallpaper);
-            if (config.getStackBlurMode() == Constants.EXTRA_SET_WALLPAPER_MODE_BOTH) {
-                home = blurFile;
-                lock = blurFile;
-            } else if (config.getStackBlurMode() == Constants.EXTRA_SET_WALLPAPER_MODE_HOME) {
-                home = blurFile;
-            } else if (config.getStackBlurMode() == Constants.EXTRA_SET_WALLPAPER_MODE_LOCK) {
-                lock = blurFile;
-            }
-        }
+    public void setWallpaper(Context context, @NonNull Config config, File wallpaper, @NonNull String url)
+            throws IOException {
+        // Do not check if the wallpaper is available
+        //if (WallpaperUtils.isNotSupportedWallpaper(context)) {
+        //    throw new IOException("This device not support wallpaper");
+        //}
+        WallpaperImage image = WallpaperUtils.getImageStackBlurFile(config, wallpaper, url);
         int mode = config.getWallpaperMode();
         if (ROM.getROM().isMiui()) {
-            MiuiHelper.setWallpaper(context, mode, home, lock);
+            MiuiHelper.setWallpaper(context, mode, image);
         } else if (ROM.getROM().isEmui()) {
-            EmuiHelper.setWallpaper(context, mode, home, lock);
+            EmuiHelper.setWallpaper(context, mode, image);
         } else if (ROM.getROM().isOneUi()) {
-            OneUiHelper.setWallpaper(context, mode, home, lock);
+            OneUiHelper.setWallpaper(context, mode, image);
         } else {
-            systemSetWallpaper(context, mode, home, lock);
+            systemSetWallpaper(context, mode, image);
         }
     }
 
-    private void systemSetWallpaper(Context context, @Constants.setWallpaperMode int mode, File home,
-            File lock) throws IOException {
+    private void systemSetWallpaper(Context context, @Constants.setWallpaperMode int mode, WallpaperImage image)
+            throws IOException {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            AppUtils.setWallpaper(context, home);
+            AppUtils.setWallpaper(context, image.getHome());
         } else {
             if (mode == Constants.EXTRA_SET_WALLPAPER_MODE_HOME) {
-                AppUtils.setHomeScreenWallpaper(context, home);
+                AppUtils.setHomeScreenWallpaper(context, image.getHome());
             } else if (mode == Constants.EXTRA_SET_WALLPAPER_MODE_LOCK) {
-                AppUtils.setLockScreenWallpaper(context, lock);
+                AppUtils.setLockScreenWallpaper(context, image.getLock());
             } else {
-                AppUtils.setHomeScreenWallpaper(context, home);
-                AppUtils.setLockScreenWallpaper(context, lock);
+                AppUtils.setHomeScreenWallpaper(context, image.getHome());
+                AppUtils.setLockScreenWallpaper(context, image.getLock());
             }
         }
     }
@@ -96,11 +88,7 @@ public class UIHelper implements IUIHelper {
         }
     }
 
-    public static File cropWallpaper(Context context, File wallpaper) throws IOException {
-        return cropWallpaper(context, wallpaper, true);
-    }
-
-    public static File cropWallpaper(Context context, File wallpaper, boolean portrait) throws IOException {
+    public static File cropWallpaper(Context context, File wallpaper, String url, boolean portrait) throws IOException {
         DisplayMetrics size = BingWallpaperUtils.getSysResolution(context);
         int width = size.widthPixels;
         int height = size.heightPixels;
@@ -120,7 +108,7 @@ public class UIHelper implements IUIHelper {
             isCrop = true;
         }
         if (isCrop) {
-            String key = BingWallpaperUtils.createKey(wallpaper.getAbsolutePath() + "_thumbnail");
+            String key = BingWallpaperUtils.createKey(url + "_thumbnail");
             File wallpaperFile = CacheUtils.get().get(key);
             if (wallpaperFile == null) {
                 Bitmap newBitmap = ThumbnailUtils.extractThumbnail(

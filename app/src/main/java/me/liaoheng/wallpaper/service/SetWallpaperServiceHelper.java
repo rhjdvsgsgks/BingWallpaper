@@ -1,7 +1,9 @@
 package me.liaoheng.wallpaper.service;
 
 import android.content.Context;
+
 import com.github.liaoheng.common.util.L;
+
 import me.liaoheng.wallpaper.model.BingWallpaperState;
 import me.liaoheng.wallpaper.model.Config;
 import me.liaoheng.wallpaper.model.Wallpaper;
@@ -27,31 +29,38 @@ public class SetWallpaperServiceHelper {
         TAG = tag;
     }
 
-    public void begin(Config config) {
+    public void begin(Config config, boolean showNotification) {
         sendSetWallpaperBroadcast(BingWallpaperState.BEGIN);
-
         L.alog().i(TAG, "start set wallpaper : %s", config);
-        if (BingWallpaperUtils.isEnableLogProvider(mContext)) {
+        if (Settings.isEnableLogProvider(mContext)) {
             LogDebugFileUtils.get().i(TAG, "Start set wallpaper : %s", config);
         }
+        if (!showNotification) {
+            return;
+        }
+        if (!config.isShowNotification()) {
+            return;
+        }
+        NotificationUtils.showStartNotification(mContext);
     }
 
     public void failure(Config config, Throwable throwable) {
         L.alog().e(TAG, throwable, "set wallpaper failure");
-        if (BingWallpaperUtils.isEnableLogProvider(mContext)) {
+        if (Settings.isEnableLogProvider(mContext)) {
             LogDebugFileUtils.get().e(TAG, throwable, "Set wallpaper failure");
         }
         sendSetWallpaperBroadcast(BingWallpaperState.FAIL);
         CrashReportHandle.collectException(mContext, TAG, config, throwable);
-        if (!config.isBackground() && !config.isShowNotification()) {
+        if (!config.isShowNotification()) {
             return;
         }
+        NotificationUtils.clearStartNotification(mContext);
         NotificationUtils.showFailureNotification(mContext);
     }
 
     public void success(Config config, Wallpaper image) {
         L.alog().i(TAG, "set wallpaper success");
-        if (BingWallpaperUtils.isEnableLogProvider(mContext)) {
+        if (Settings.isEnableLogProvider(mContext)) {
             LogDebugFileUtils.get().i(TAG, "Set wallpaper success");
         }
         if (config.isBackground()) {
@@ -69,6 +78,7 @@ public class SetWallpaperServiceHelper {
     }
 
     private void showSuccessNotification(Wallpaper image, boolean isShow) {
+        NotificationUtils.clearStartNotification(mContext);
         NotificationUtils.clearFailureNotification(mContext);
         if (isShow) {
             NotificationUtils.showSuccessNotification(mContext, image.getTitle());

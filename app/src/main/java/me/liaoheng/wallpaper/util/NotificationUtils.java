@@ -48,7 +48,7 @@ public class NotificationUtils {
         Intent resultIntent = new Intent(context, MainActivity.class);
         PendingIntent resultPendingIntent =
                 PendingIntent.getActivity(context, 12, resultIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT);
+                        BingWallpaperUtils.getPendingIntentFlag());
 
         Notification notification = new NotificationCompat.Builder(context,
                 Constants.FOREGROUND_INTENT_SERVICE_SUCCESS_NOTIFICATION_CHANNEL).setSmallIcon(
@@ -59,7 +59,7 @@ public class NotificationUtils {
                 .setContentText(content)
                 .setContentTitle(context.getText(R.string.set_wallpaper_success))
                 .setContentIntent(resultPendingIntent).build();
-        NotificationManagerCompat.from(context).notify(12, notification);
+        NotificationManagerCompat.from(context).notify(0x333, notification);
     }
 
     public static void showFailureNotification(Context context) {
@@ -69,20 +69,31 @@ public class NotificationUtils {
                 .setAutoCancel(true)
                 .setContentText(context.getText(R.string.set_wallpaper_failure))
                 .setContentTitle(context.getText(R.string.app_name)).build();
-        NotificationManagerCompat.from(context).notify(11, notification);
+        NotificationManagerCompat.from(context).notify(0x111, notification);
     }
 
     public static void clearFailureNotification(Context context) {
-        NotificationManagerCompat.from(context).cancel(11);
+        NotificationManagerCompat.from(context).cancel(0x111);
+    }
+
+    public static Notification getStartNotification(Context context) {
+        return new NotificationCompat.Builder(context,
+                Constants.FOREGROUND_INTENT_SERVICE_NOTIFICATION_CHANNEL).setSmallIcon(
+                R.drawable.ic_notification)
+                .setContentText(context.getText(R.string.set_wallpaper_running))
+                .setContentTitle(context.getText(R.string.app_name))
+                .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE).build();
     }
 
     public static void showStartNotification(Service service) {
-        Notification notification = new NotificationCompat.Builder(service.getApplicationContext(),
-                Constants.FOREGROUND_INTENT_SERVICE_NOTIFICATION_CHANNEL).setSmallIcon(
-                R.drawable.ic_notification)
-                .setContentText(service.getText(R.string.set_wallpaper_running))
-                .setContentTitle(service.getText(R.string.app_name))
-                .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE).build();
-        service.startForeground(111 + (int) (Math.random() * 10), notification);// Multiple services
+        service.startForeground(0x211, getStartNotification(service.getApplicationContext()));
+    }
+
+    public static void showStartNotification(Context context) {
+        NotificationManagerCompat.from(context).notify(0x222, getStartNotification(context));
+    }
+
+    public static void clearStartNotification(Context context) {
+        NotificationManagerCompat.from(context).cancel(0x222);
     }
 }

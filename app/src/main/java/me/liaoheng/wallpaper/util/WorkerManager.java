@@ -4,11 +4,14 @@ import android.content.Context;
 import android.util.Log;
 
 import androidx.work.Configuration;
+import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
+import com.github.liaoheng.common.util.L;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -16,6 +19,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import me.liaoheng.wallpaper.model.Config;
+import me.liaoheng.wallpaper.model.Wallpaper;
 import me.liaoheng.wallpaper.service.BingWallpaperWorker;
 
 /**
@@ -41,9 +46,24 @@ public class WorkerManager {
             WorkManager.getInstance(context)
                     .enqueueUniquePeriodicWork(WORKER_TAG, ExistingPeriodicWorkPolicy.REPLACE, builder.build());
             return true;
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
+            L.alog().w("WorkerManager", e, "enable work error");
         }
         return false;
+    }
+
+    public static void start(Context context, Wallpaper wallpaper, Config config) {
+        OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(BingWallpaperWorker.class)
+                .addTag(WORKER_TAG);
+        Data.Builder dataBuilder = new Data.Builder();
+        if (config != null) {
+            dataBuilder.putAll(config.getMap());
+        }
+        if (wallpaper != null) {
+            dataBuilder.putAll(wallpaper.getMap());
+        }
+        builder.setInputData(dataBuilder.build());
+        WorkManager.getInstance(context).enqueue(builder.build());
     }
 
     public static Configuration getConfig(boolean debug) {

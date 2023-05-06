@@ -18,6 +18,10 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.app.ShareCompat;
+
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
@@ -37,15 +41,13 @@ import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.ShareCompat;
 import io.reactivex.Observable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 import me.liaoheng.wallpaper.R;
 import me.liaoheng.wallpaper.model.Config;
 import me.liaoheng.wallpaper.model.Wallpaper;
+import me.liaoheng.wallpaper.model.WallpaperImage;
 
 /**
  * @author liaoheng
@@ -144,28 +146,39 @@ public class WallpaperUtils {
     }
 
     public static Uri saveToFile(Context context, String url, File from) throws IOException {
-        String name = BingWallpaperUtils.getName(url);
-        String[] split = name.split("=");
-        if (split.length > 1) {
-            name = split[1];
+        return FileUtils.saveFileToPictureCompat(context, BingWallpaperUtils.getWallpaperName(url), from);
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    public static File getLocalWallpaperFile(Context context, File file) {
+        try {
+            File wallpaper = FileUtils.createFile(FileUtils.getProjectSpaceCacheDirectory(context, "wallpaper"),
+                    "wallpaper.w");
+            Files.copy(file, wallpaper);
+            return wallpaper;
+        } catch (Exception e) {
+            return file;
         }
-        return FileUtils.saveFileToPictureCompat(context, name, from);
     }
 
     public static File getImageFile(Context context, String url) throws Exception {
-        return GlideApp.with(context).downloadOnly().load(url).submit().get();
+        return getLocalWallpaperFile(context, GlideApp.with(context).downloadOnly().load(url).submit().get());
     }
 
     public static File getImageFile(Context context, @NonNull Config config, @NonNull String url) throws Exception {
-        return getImageStackBlurFile(config.getStackBlur(), getImageFile(context, url));
+        return getImageStackBlurFile(config.getStackBlur(), getImageFile(context, url), url);
     }
 
-    public static File getImageStackBlurFile(int stackBlur, File wallpaper) {
+    public static File getImageStackBlurFile(int stackBlur, File wallpaper, @NonNull String url) {
         if (stackBlur > 0) {
-            String key = BingWallpaperUtils.createKey(wallpaper.getAbsolutePath() + "_blur_" + stackBlur);
+            String key = BingWallpaperUtils.createKey(url + "_blur_" + stackBlur);
             File stackBlurFile = CacheUtils.get().get(key);
             if (stackBlurFile == null) {
-                Bitmap bitmap = toStackBlur2(BitmapFactory.decodeFile(wallpaper.getAbsolutePath()), stackBlur);
+                Bitmap bitmap = BitmapFactory.decodeFile(wallpaper.getAbsolutePath());
+                if (bitmap == null) {
+                    return wallpaper;
+                }
+                bitmap = transformStackBlur(bitmap, stackBlur);
                 stackBlurFile = CacheUtils.get().put(key, BitmapUtils.bitmapToStream(bitmap,
                         Bitmap.CompressFormat.JPEG));
                 bitmap.recycle();
@@ -177,8 +190,24 @@ public class WallpaperUtils {
         return wallpaper;
     }
 
-    public static File getImageWaterMarkFile(@NonNull Context context, File wallpaper, String str) {
-        String key = BingWallpaperUtils.createKey(wallpaper.getAbsolutePath() + "_mark_" + str);
+    public static WallpaperImage getImageStackBlurFile(@NonNull Config config, File wallpaper, @NonNull String url) {
+        WallpaperImage pair = new WallpaperImage(url, new File(wallpaper.toURI()), new File(wallpaper.toURI()));
+        if (config.getStackBlur() > 0) {
+            File blurFile = WallpaperUtils.getImageStackBlurFile(config.getStackBlur(), wallpaper, url);
+            if (config.getStackBlurMode() == Constants.EXTRA_SET_WALLPAPER_MODE_BOTH) {
+                pair.setHome(blurFile);
+                pair.setLock(blurFile);
+            } else if (config.getStackBlurMode() == Constants.EXTRA_SET_WALLPAPER_MODE_HOME) {
+                pair.setHome(blurFile);
+            } else if (config.getStackBlurMode() == Constants.EXTRA_SET_WALLPAPER_MODE_LOCK) {
+                pair.setLock(blurFile);
+            }
+        }
+        return pair;
+    }
+
+    public static File getImageWaterMarkFile(@NonNull Context context, File wallpaper, String str, String url) {
+        String key = BingWallpaperUtils.createKey(url + "_mark_" + str);
         File mark = CacheUtils.get().get(key);
         if (mark == null) {
             Bitmap bitmap = waterMark(context, BitmapFactory.decodeFile(wallpaper.getAbsolutePath()), str);
@@ -189,7 +218,7 @@ public class WallpaperUtils {
         return mark;
     }
 
-    public static Bitmap transformStackBlur(Bitmap bitmap, int stackBlur) {
+    public static Bitmap transformStackBlur(@NonNull Bitmap bitmap, int stackBlur) {
         if (stackBlur <= 0) {
             return bitmap;
         }
@@ -214,7 +243,7 @@ public class WallpaperUtils {
         Observable<File> fileObservable = Observable.just("")
                 .subscribeOn(Schedulers.io())
                 .map(s -> getImageFile(context, config, url))
-                .flatMap(file -> Observable.just(getImageWaterMarkFile(context, file, title)))
+                .flatMap(file -> Observable.just(getImageWaterMarkFile(context, file, title, url)))
                 .map(file -> getShareFile(context, file));
         Utils.addSubscribe(fileObservable, new Callback.EmptyCallback<File>() {
             @Override
@@ -319,7 +348,7 @@ public class WallpaperUtils {
     }
 
     @NonNull
-    public static Bitmap toStackBlur2(Bitmap original, int radius) {
+    static Bitmap toStackBlur2(Bitmap original, int radius) {
         return NativeStackBlur.process(original, radius);
     }
 
@@ -336,7 +365,10 @@ public class WallpaperUtils {
         } catch (Throwable ignored) {
         } finally {
             if (canvas != null) {
-                holder.unlockCanvasAndPost(canvas);
+                try {
+                    holder.unlockCanvasAndPost(canvas);
+                } catch (Throwable ignored) {
+                }
             }
         }
     }
