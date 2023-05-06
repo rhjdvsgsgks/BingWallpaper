@@ -105,7 +105,7 @@ dependencies {
     implementation deps.joda_time_android
 
     //https://github.com/Commit451/NativeStackBlur
-    implementation 'com.github.Commit451:NativeStackBlur:1.0.5'
+    implementation 'com.github.Commit451:NativeStackBlur:1.0.7'
 
     //https://github.com/scottyab/rootbeer
     implementation 'com.github.scottyab:rootbeer:0.1.0'
