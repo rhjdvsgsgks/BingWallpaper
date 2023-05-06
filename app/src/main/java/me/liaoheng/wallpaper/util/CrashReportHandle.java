@@ -6,7 +6,6 @@ import android.util.MalformedJsonException;
 
 import com.bumptech.glide.load.engine.GlideException;
 import com.github.liaoheng.common.util.L;
-import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.net.ConnectException;
 import java.net.SocketException;
@@ -16,8 +15,6 @@ import java.util.List;
 
 import javax.net.ssl.SSLHandshakeException;
 
-import io.sentry.Sentry;
-import io.sentry.android.core.SentryAndroid;
 import me.liaoheng.wallpaper.BuildConfig;
 import me.liaoheng.wallpaper.R;
 import me.liaoheng.wallpaper.model.Config;
@@ -31,40 +28,15 @@ public class CrashReportHandle {
     private static boolean isFirebaseAnalytics;
 
     public static void init(Context context) {
-        initFirebaseAnalytics();
-        if (check(context)) {
-            disable(context);
-        } else {
-            enable(context);
-            SentryAndroid.init(context, options -> options.setDebug(BuildConfig.DEBUG));
-        }
     }
 
     private static void initFirebaseAnalytics() {
-        try {
-            Class.forName("com.google.firebase.analytics.FirebaseAnalytics");
-            isFirebaseAnalytics = true;
-        } catch (ClassNotFoundException ignored) {
-            isFirebaseAnalytics = false;
-        }
     }
 
     public static void enable(Context context) {
-        try {
-            if (isFirebaseAnalytics) {
-                FirebaseAnalytics.getInstance(context).setAnalyticsCollectionEnabled(true);
-            }
-        } catch (Throwable ignored) {
-        }
     }
 
     public static void disable(Context context) {
-        try {
-            if (isFirebaseAnalytics) {
-                FirebaseAnalytics.getInstance(context).setAnalyticsCollectionEnabled(false);
-            }
-        } catch (Throwable ignored) {
-        }
     }
 
     public static String loadFailed(Context context, String TAG, Throwable throwable) {
@@ -131,15 +103,6 @@ public class CrashReportHandle {
         }
         if (t instanceof UnknownHostException) {
             return;
-        }
-        try {
-            Sentry.setTag("tag", TAG);
-            Sentry.setExtra("Feedback info", BingWallpaperUtils.getSystemInfo(context));
-            if (config != null) {
-                Sentry.setExtra("Config", config.toString());
-            }
-            Sentry.captureException(t);
-        } catch (Exception ignored) {
         }
     }
 
